@@ -1113,6 +1113,19 @@ SEASON
 
 </div>
 
+<div class="grid" style="max-width:1050px;margin-top:28px">
+  <div class="card">
+    <h2>⚽ Top Scorers</h2>
+    <p class="muted">Updated from the player statistics.</p>
+    <div id="homeTopScorers"></div>
+  </div>
+  <div class="card">
+    <h2>🔥 Latest Goals</h2>
+    <p class="muted">Recent goals recorded by the club admin.</p>
+    <div id="homeGoalFeed"></div>
+  </div>
+</div>
+
 </div>
 
 </section>
@@ -2104,6 +2117,37 @@ ADD PLAYER
 </div>
 
 
+<!-- GOAL AND PLAYER STAT ENTRY -->
+
+<div class="card">
+<h2>⚽ Record a Goal</h2>
+<p class="muted">Record a scorer and optional assist. The homepage, rankings and player statistics update automatically.</p>
+<div class="form">
+  <select id="goalPlayer"></select>
+  <input id="goalMinute" type="number" min="0" max="150" placeholder="Minute (e.g. 67)">
+  <input id="goalOpponent" placeholder="Opponent / match (optional)">
+  <select id="goalAssistPlayer"><option value="">No assist / unknown</option></select>
+  <button class="btn primary" onclick="recordGoal()">⚽ RECORD GOAL</button>
+</div>
+</div>
+
+<div class="card">
+<h2>📊 Edit Player Statistics</h2>
+<p class="muted">Add or subtract totals for goals, assists and appearances, or update a player's rating.</p>
+<div class="form">
+  <select id="statsPlayer"></select>
+  <div class="two">
+    <input id="editGoals" type="number" step="1" placeholder="Goals change (+/-)">
+    <input id="editAssists" type="number" step="1" placeholder="Assists change (+/-)">
+  </div>
+  <div class="two">
+    <input id="editApps" type="number" step="1" placeholder="Appearances change (+/-)">
+    <input id="editRating" type="number" min="0" max="10" step="0.1" placeholder="New rating (0–10)">
+  </div>
+  <button class="btn primary" onclick="updatePlayerStats()">SAVE PLAYER STATS</button>
+</div>
+</div>
+
 <!-- MATCH -->
 
 <div class="card">
@@ -2775,6 +2819,8 @@ Number(
 localStorage.getItem("ML4_tickets")||0
 );
 
+let goalLog=load("ML4_goalLog",[]);
+
 
 /* =========================================================
    SAVE
@@ -2825,6 +2871,11 @@ JSON.stringify(hall)
 localStorage.setItem(
 "ML4_tickets",
 tickets
+);
+
+localStorage.setItem(
+"ML4_goalLog",
+JSON.stringify(goalLog)
 );
 
 }
@@ -4237,7 +4288,7 @@ document
 .getElementById("password")
 .value;
 
-if(entered==="MLegends#8427"){
+if(entered==="admin123"){
 
 document
 .getElementById("loginBox")
@@ -4375,6 +4426,65 @@ create("");
 
 
 /* =========================================================
+   GOAL ENTRY AND PLAYER STAT EDITOR
+   ========================================================= */
+
+function refreshPlayerSelects(){
+  const options=players.map(p=>`<option value="${p.id}">${safe(p.name)} (#${p.number})</option>`).join("");
+  ["goalPlayer","goalAssistPlayer","statsPlayer"].forEach(id=>{
+    const select=document.getElementById(id);
+    if(!select)return;
+    const old=select.value;
+    if(id==="goalAssistPlayer") select.innerHTML='<option value="">No assist / unknown</option>'+options;
+    else select.innerHTML=options || '<option value="">Add a player first</option>';
+    if(old && [...select.options].some(o=>o.value===old)) select.value=old;
+  });
+}
+
+function recordGoal(){
+  const player=players.find(p=>String(p.id)===document.getElementById("goalPlayer").value);
+  if(!player){alert("Add a player first, then record a goal.");return;}
+  const assistId=document.getElementById("goalAssistPlayer").value;
+  const assister=assistId?players.find(p=>String(p.id)===assistId):null;
+  if(assister && assister.id===player.id){alert("The scorer and assister must be different players.");return;}
+  const minute=document.getElementById("goalMinute").value.trim();
+  const opponent=document.getElementById("goalOpponent").value.trim();
+  player.goals=Number(player.goals||0)+1;
+  if(assister) assister.assists=Number(assister.assists||0)+1;
+  goalLog.unshift({id:Date.now(),player:player.name,minute:minute,opponent:opponent,assister:assister?assister.name:"",date:new Date().toISOString().slice(0,10)});
+  goalLog=goalLog.slice(0,30);
+  save();
+  renderAll();
+  document.getElementById("goalMinute").value="";
+  document.getElementById("goalOpponent").value="";
+  alert("Goal recorded! Player stats, rankings and homepage have been updated.");
+}
+
+function updatePlayerStats(){
+  const player=players.find(p=>String(p.id)===document.getElementById("statsPlayer").value);
+  if(!player){alert("Add a player first.");return;}
+  const fields=[["editGoals","goals"],["editAssists","assists"],["editApps","apps"]];
+  fields.forEach(([input,key])=>{
+    const raw=document.getElementById(input).value;
+    if(raw!=="") player[key]=Math.max(0,Number(player[key]||0)+Number(raw));
+  });
+  const rating=document.getElementById("editRating").value;
+  if(rating!=="") player.rating=Math.max(0,Math.min(10,Number(rating)));
+  save();
+  renderAll();
+  ["editGoals","editAssists","editApps","editRating"].forEach(id=>document.getElementById(id).value="");
+  alert("Player statistics saved and refreshed.");
+}
+
+function renderHomeGoalBoard(){
+  const top=[...players].sort((a,b)=>(Number(b.goals)||0)-(Number(a.goals)||0)).slice(0,5);
+  const scorerBox=document.getElementById("homeTopScorers");
+  if(scorerBox) scorerBox.innerHTML=top.length?top.map((p,i)=>`<div class="event"><b class="gold">${i+1}. ${safe(p.name)}</b><span style="float:right"><b>${Number(p.goals)||0}</b> goals</span></div>`).join(""):'<p class="muted">Add players in Admin to see the top scorers.</p>';
+  const feed=document.getElementById("homeGoalFeed");
+  if(feed) feed.innerHTML=goalLog.length?goalLog.slice(0,6).map(g=>`<div class="event"><b>${safe(g.player)}</b> ⚽ ${g.minute?safe(g.minute)+"'":"Goal"}${g.opponent?' vs '+safe(g.opponent):''}${g.assister?`<div class="muted">Assist: ${safe(g.assister)}</div>`:''}<div class="muted">${safe(g.date||"")}</div></div>`).join(""):'<p class="muted">No goals recorded yet. Use Admin → Record a Goal.</p>';
+}
+
+/* =========================================================
    ADD MATCH
    ========================================================= */
 
@@ -4473,10 +4583,21 @@ playerName.toLowerCase()
 if(player){
 
 player.goals++;
+const minuteMatch=event.match(/(\d+)\s*'/);
+goalLog.unshift({
+  id:Date.now()+Math.random(),
+  player:player.name,
+  minute:minuteMatch?minuteMatch[1]:"",
+  opponent:opponent,
+  assister:"",
+  date:document.getElementById("mDate").value||new Date().toISOString().slice(0,10)
+});
 
 }
 
 });
+
+goalLog=goalLog.slice(0,30);
 
 
 save();
@@ -4836,6 +4957,7 @@ if(!answer)return;
 "ML4_gallery",
 "ML4_hall",
 "ML4_tickets",
+"ML4_goalLog",
 "ML4_customBackground"
 ]
 .forEach(
@@ -4854,6 +4976,10 @@ location.reload();
    ========================================================= */
 
 function renderAll(){
+
+refreshPlayerSelects();
+
+renderHomeGoalBoard();
 
 renderPlayers();
 
