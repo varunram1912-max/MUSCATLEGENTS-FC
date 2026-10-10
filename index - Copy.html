@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="google-site-verification" content="RXicvGjn043YKJRKtoMohco9G3E2dS9brgffd8SjAj4" />
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -1114,6 +1113,19 @@ SEASON
 
 </div>
 
+<div class="grid" style="max-width:1050px;margin-top:28px">
+  <div class="card">
+    <h2>⚽ Top Scorers</h2>
+    <p class="muted">Updated from the player statistics.</p>
+    <div id="homeTopScorers"></div>
+  </div>
+  <div class="card">
+    <h2>🔥 Latest Goals</h2>
+    <p class="muted">Recent goals recorded by the club admin.</p>
+    <div id="homeGoalFeed"></div>
+  </div>
+</div>
+
 </div>
 
 </section>
@@ -2105,6 +2117,37 @@ ADD PLAYER
 </div>
 
 
+<!-- GOAL AND PLAYER STAT ENTRY -->
+
+<div class="card">
+<h2>⚽ Record a Goal</h2>
+<p class="muted">Record a scorer and optional assist. The homepage, rankings and player statistics update automatically.</p>
+<div class="form">
+  <select id="goalPlayer"></select>
+  <input id="goalMinute" type="number" min="0" max="150" placeholder="Minute (e.g. 67)">
+  <input id="goalOpponent" placeholder="Opponent / match (optional)">
+  <select id="goalAssistPlayer"><option value="">No assist / unknown</option></select>
+  <button class="btn primary" onclick="recordGoal()">⚽ RECORD GOAL</button>
+</div>
+</div>
+
+<div class="card">
+<h2>📊 Edit Player Statistics</h2>
+<p class="muted">Add or subtract totals for goals, assists and appearances, or update a player's rating.</p>
+<div class="form">
+  <select id="statsPlayer"></select>
+  <div class="two">
+    <input id="editGoals" type="number" step="1" placeholder="Goals change (+/-)">
+    <input id="editAssists" type="number" step="1" placeholder="Assists change (+/-)">
+  </div>
+  <div class="two">
+    <input id="editApps" type="number" step="1" placeholder="Appearances change (+/-)">
+    <input id="editRating" type="number" min="0" max="10" step="0.1" placeholder="New rating (0–10)">
+  </div>
+  <button class="btn primary" onclick="updatePlayerStats()">SAVE PLAYER STATS</button>
+</div>
+</div>
+
 <!-- MATCH -->
 
 <div class="card">
@@ -2288,9 +2331,7 @@ ADD TROPHY
 id="aName"
 placeholder="Award name">
 
-<input
-id="aWinner"
-placeholder="Winner">
+<select id="aWinner"><option value="">Add a player first</option></select>
 
 <input
 id="aYear"
@@ -2405,6 +2446,18 @@ ONE CLUB • ONE CITY • ONE DREAM
 </footer>
 
 
+<div class="card">
+<h2>🧑‍🤝‍🧑 Manage / Delete Players</h2>
+<p class="muted">Edit a player's goals and assists directly, including lowering a number. Delete players you no longer want in the squad.</p>
+<div id="adminPlayerManager"><p class="muted">No players yet. Add your first player above.</p></div>
+</div>
+
+<div class="card">
+<h2>🏅 Manage / Delete Awards</h2>
+<p class="muted">Change an award winner or remove an award completely.</p>
+<div id="adminAwardManager"><p class="muted">No awards yet. Add an award above.</p></div>
+</div>
+
 <!-- =====================================================
      PLAYER MODAL
      ===================================================== -->
@@ -2437,117 +2490,7 @@ id="profileContent">
    DATA
    ========================================================= */
 
-const defaultPlayers=[
-
-{
-id:1,
-name:"Ahmed Al-Harthy",
-position:"Forward",
-number:9,
-nation:"Oman",
-goals:18,
-assists:7,
-apps:20,
-rating:8.7,
-potm:5,
-clean:0,
-yellow:2,
-red:0,
-minutes:1610,
-photo:""
-},
-
-{
-id:2,
-name:"Daniel Smith",
-position:"Midfielder",
-number:8,
-nation:"England",
-goals:10,
-assists:14,
-apps:22,
-rating:8.4,
-potm:3,
-clean:0,
-yellow:3,
-red:0,
-minutes:1840,
-photo:""
-},
-
-{
-id:3,
-name:"Ryan Wilson",
-position:"Defender",
-number:4,
-nation:"Scotland",
-goals:3,
-assists:5,
-apps:21,
-rating:7.8,
-potm:1,
-clean:8,
-yellow:4,
-red:0,
-minutes:1770,
-photo:""
-},
-
-{
-id:4,
-name:"Varun Kumar",
-position:"Midfielder",
-number:10,
-nation:"Oman",
-goals:8,
-assists:11,
-apps:19,
-rating:8.2,
-potm:2,
-clean:0,
-yellow:1,
-red:0,
-minutes:1502,
-photo:""
-},
-
-{
-id:5,
-name:"Omar Al-Balushi",
-position:"Goalkeeper",
-number:1,
-nation:"Oman",
-goals:0,
-assists:1,
-apps:22,
-rating:7.9,
-potm:2,
-clean:9,
-yellow:1,
-red:0,
-minutes:1980,
-photo:""
-},
-
-{
-id:6,
-name:"Leo Martin",
-position:"Defender",
-number:5,
-nation:"France",
-goals:2,
-assists:3,
-apps:17,
-rating:7.6,
-potm:1,
-clean:7,
-yellow:2,
-red:1,
-minutes:1420,
-photo:""
-}
-
-];
+const defaultPlayers=[];
 
 
 const defaultMatches=[
@@ -2579,12 +2522,7 @@ venue:"Home",
 home:4,
 away:2,
 status:"WON",
-events:[
-"Ahmed Al-Harthy ⚽ 12'",
-"Varun Kumar ⚽ 34'",
-"Daniel Smith ⚽ 61'",
-"Ahmed Al-Harthy ⚽ 78'"
-]
+events:[]
 },
 
 {
@@ -2594,11 +2532,7 @@ venue:"Home",
 home:3,
 away:1,
 status:"WON",
-events:[
-"Daniel Smith ⚽ 19'",
-"Varun Kumar ⚽ 55'",
-"Ahmed Al-Harthy ⚽ 87'"
-]
+events:[]
 }
 
 ];
@@ -2627,25 +2561,7 @@ text:"Muscat Legends produced another impressive attacking performance."
 ];
 
 
-const defaultTransfers=[
-
-{
-player:"Leo Martin",
-direction:"IN",
-from:"Lyon Academy",
-to:"Muscat Legends",
-date:"2026-08-20"
-},
-
-{
-player:"Daniel Smith",
-direction:"IN",
-from:"Manchester Academy",
-to:"Muscat Legends",
-date:"2026-07-10"
-}
-
-];
+const defaultTransfers=[];
 
 
 const defaultTrophies=[
@@ -2671,33 +2587,7 @@ description:"Runners-up"
 ];
 
 
-const defaultAwards=[
-
-{
-name:"Muscat Legends Ballon d'Or",
-winner:"Ahmed Al-Harthy",
-year:"2026/27"
-},
-
-{
-name:"Golden Playmaker",
-winner:"Daniel Smith",
-year:"2026/27"
-},
-
-{
-name:"Golden Glove",
-winner:"Omar Al-Balushi",
-year:"2026/27"
-},
-
-{
-name:"Young Player of the Year",
-winner:"Varun Kumar",
-year:"2026/27"
-}
-
-];
+const defaultAwards=[];
 
 
 const defaultHall=[
@@ -2776,6 +2666,18 @@ Number(
 localStorage.getItem("ML4_tickets")||0
 );
 
+let goalLog=load("ML4_goalLog",[]);
+
+// Remove sample players left by earlier versions, but preserve other players you added.
+const oldDemoNames=["Ahmed Al-Harthy","Ahmed Al Harthi","Daniel Smith","Ryan Wilson","Varun Kumar","Omar Al-Balushi","Omar Al Boshi","Leo Martin"];
+players=players.filter(p=>!oldDemoNames.includes(String(p.name||"")));
+awards=awards.filter(a=>!oldDemoNames.includes(String(a.winner||"")));
+transfers=transfers.filter(t=>!oldDemoNames.includes(String(t.player||"")));
+matches=matches.map(m=>({...m,events:(m.events||[]).filter(e=>!oldDemoNames.some(n=>String(e).includes(n)))}));
+goalLog=goalLog.filter(g=>!oldDemoNames.includes(String(g.player||""))&&!oldDemoNames.includes(String(g.assister||"")));
+try { localStorage.setItem("ML4_players",JSON.stringify(players)); localStorage.setItem("ML4_awards",JSON.stringify(awards)); localStorage.setItem("ML4_transfers",JSON.stringify(transfers)); localStorage.setItem("ML4_matches",JSON.stringify(matches)); localStorage.setItem("ML4_goalLog",JSON.stringify(goalLog)); } catch(e) {}
+
+
 
 /* =========================================================
    SAVE
@@ -2826,6 +2728,11 @@ JSON.stringify(hall)
 localStorage.setItem(
 "ML4_tickets",
 tickets
+);
+
+localStorage.setItem(
+"ML4_goalLog",
+JSON.stringify(goalLog)
 );
 
 }
@@ -3643,6 +3550,8 @@ ${c.pts}
 
 function renderAwards(){
 
+if(!awards.length){document.getElementById("awardsGrid").innerHTML='<div class="card muted">No club awards yet. Create awards in the Admin area.</div>';return;}
+
 document
 .getElementById("awardsGrid")
 .innerHTML=
@@ -4238,7 +4147,7 @@ document
 .getElementById("password")
 .value;
 
-if(entered==="admin123"){
+if(entered==="MLegends#8427"){
 
 document
 .getElementById("loginBox")
@@ -4376,6 +4285,135 @@ create("");
 
 
 /* =========================================================
+   GOAL ENTRY AND PLAYER STAT EDITOR
+   ========================================================= */
+
+function refreshPlayerSelects(){
+  const options=players.map(p=>`<option value="${p.id}">${safe(p.name)} (#${p.number})</option>`).join("");
+  ["goalPlayer","goalAssistPlayer","statsPlayer"].forEach(id=>{
+    const select=document.getElementById(id);
+    if(!select)return;
+    const old=select.value;
+    if(id==="goalAssistPlayer") select.innerHTML='<option value="">No assist / unknown</option>'+options;
+    else select.innerHTML=options || '<option value="">Add a player first</option>';
+    if(old && [...select.options].some(o=>o.value===old)) select.value=old;
+  });
+}
+
+function recordGoal(){
+  const player=players.find(p=>String(p.id)===document.getElementById("goalPlayer").value);
+  if(!player){alert("Add a player first, then record a goal.");return;}
+  const assistId=document.getElementById("goalAssistPlayer").value;
+  const assister=assistId?players.find(p=>String(p.id)===assistId):null;
+  if(assister && assister.id===player.id){alert("The scorer and assister must be different players.");return;}
+  const minute=document.getElementById("goalMinute").value.trim();
+  const opponent=document.getElementById("goalOpponent").value.trim();
+  player.goals=Number(player.goals||0)+1;
+  if(assister) assister.assists=Number(assister.assists||0)+1;
+  goalLog.unshift({id:Date.now(),player:player.name,minute:minute,opponent:opponent,assister:assister?assister.name:"",date:new Date().toISOString().slice(0,10)});
+  goalLog=goalLog.slice(0,30);
+  save();
+  renderAll();
+  document.getElementById("goalMinute").value="";
+  document.getElementById("goalOpponent").value="";
+  alert("Goal recorded! Player stats, rankings and homepage have been updated.");
+}
+
+function updatePlayerStats(){
+  const player=players.find(p=>String(p.id)===document.getElementById("statsPlayer").value);
+  if(!player){alert("Add a player first.");return;}
+  const fields=[["editGoals","goals"],["editAssists","assists"],["editApps","apps"]];
+  fields.forEach(([input,key])=>{
+    const raw=document.getElementById(input).value;
+    if(raw!=="") player[key]=Math.max(0,Number(player[key]||0)+Number(raw));
+  });
+  const rating=document.getElementById("editRating").value;
+  if(rating!=="") player.rating=Math.max(0,Math.min(10,Number(rating)));
+  save();
+  renderAll();
+  ["editGoals","editAssists","editApps","editRating"].forEach(id=>document.getElementById(id).value="");
+  alert("Player statistics saved and refreshed.");
+}
+
+function renderHomeGoalBoard(){
+  const top=[...players].sort((a,b)=>(Number(b.goals)||0)-(Number(a.goals)||0)).slice(0,5);
+  const scorerBox=document.getElementById("homeTopScorers");
+  if(scorerBox) scorerBox.innerHTML=top.length?top.map((p,i)=>`<div class="event"><b class="gold">${i+1}. ${safe(p.name)}</b><span style="float:right"><b>${Number(p.goals)||0}</b> goals</span></div>`).join(""):'<p class="muted">Add players in Admin to see the top scorers.</p>';
+  const feed=document.getElementById("homeGoalFeed");
+  if(feed) feed.innerHTML=goalLog.length?goalLog.slice(0,6).map(g=>`<div class="event"><b>${safe(g.player)}</b> ⚽ ${g.minute?safe(g.minute)+"'":"Goal"}${g.opponent?' vs '+safe(g.opponent):''}${g.assister?`<div class="muted">Assist: ${safe(g.assister)}</div>`:''}<div class="muted">${safe(g.date||"")}</div></div>`).join(""):'<p class="muted">No goals recorded yet. Use Admin → Record a Goal.</p>';
+}
+
+/* =========================================================
+   ADMIN PLAYER AND AWARD MANAGEMENT
+   ========================================================= */
+function renderAdminManagers(){
+  const playerBox=document.getElementById("adminPlayerManager");
+  if(playerBox){
+    playerBox.innerHTML=players.length?players.map(p=>`
+      <div class="card" style="margin:12px 0;padding:16px">
+        <h3>${safe(p.name)} <span class="muted">(#${p.number||"—"})</span></h3>
+        <div class="two">
+          <div><label>Goals</label><input id="adminGoals-${p.id}" type="number" min="0" step="1" value="${Number(p.goals)||0}"></div>
+          <div><label>Assists</label><input id="adminAssists-${p.id}" type="number" min="0" step="1" value="${Number(p.assists)||0}"></div>
+        </div>
+        <button class="btn primary" onclick="saveAdminPlayerStats('${String(p.id)}')">SAVE GOALS / ASSISTS</button>
+        <button class="btn red" onclick="deletePlayer('${String(p.id)}')">DELETE PLAYER</button>
+      </div>`).join(""):'<p class="muted">No players yet. Add your first player above.</p>';
+  }
+  const awardBox=document.getElementById("adminAwardManager");
+  if(awardBox){
+    awardBox.innerHTML=awards.length?awards.map((a,i)=>`
+      <div class="card" style="margin:12px 0;padding:16px">
+        <h3>${safe(a.name)}</h3>
+        <label>Winner</label>
+        <select id="adminAwardWinner-${i}">
+          <option value="">Choose a player</option>
+          ${players.map(p=>`<option value="${String(p.id)}" ${String(a.winnerId||"")===String(p.id)||(!a.winnerId&&a.winner===p.name)?"selected":""}>${safe(p.name)}</option>`).join("")}
+        </select>
+        <button class="btn primary" onclick="saveAwardWinner(${i})">SAVE WINNER</button>
+        <button class="btn red" onclick="deleteAward(${i})">DELETE AWARD</button>
+      </div>`).join(""):'<p class="muted">No awards yet. Add an award above.</p>';
+  }
+  const select=document.getElementById("aWinner");
+  if(select){
+    const previous=select.value;
+    select.innerHTML='<option value="">Choose a winner</option>'+players.map(p=>`<option value="${String(p.id)}">${safe(p.name)}</option>`).join("");
+    if(players.some(p=>String(p.id)===previous)) select.value=previous;
+    select.disabled=players.length===0;
+  }
+}
+function saveAdminPlayerStats(id){
+  const player=players.find(p=>String(p.id)===String(id)); if(!player)return;
+  const goals=document.getElementById("adminGoals-"+id), assists=document.getElementById("adminAssists-"+id);
+  const valid=n=>n&&n.value.trim()!==""&&/^\d+$/.test(n.value)&&Number.isSafeInteger(Number(n.value));
+  if(!valid(goals)||!valid(assists)){alert("Enter whole numbers of 0 or greater for goals and assists.");return;}
+  player.goals=Number(goals.value); player.assists=Number(assists.value);
+  save(); renderAll(); alert("Player statistics updated.");
+}
+function deletePlayer(id){
+  const player=players.find(p=>String(p.id)===String(id)); if(!player)return;
+  if(!confirm(`Delete ${player.name} from the squad? Awards assigned to this player will also be removed.`))return;
+  players=players.filter(p=>String(p.id)!==String(id));
+  awards=awards.filter(a=>String(a.winnerId||"")!==String(id)&&a.winner!==player.name);
+  goalLog=goalLog.filter(g=>g.player!==player.name&&g.assister!==player.name);
+  matches=matches.map(m=>({...m,events:(m.events||[]).filter(e=>!String(e).includes(player.name))}));
+  save(); renderAll(); alert("Player deleted.");
+}
+function saveAwardWinner(index){
+  const award=awards[index]; if(!award)return;
+  const select=document.getElementById("adminAwardWinner-"+index);
+  const player=players.find(p=>String(p.id)===String(select.value));
+  if(!player){alert("Choose a player first.");return;}
+  award.winner=player.name; award.winnerId=String(player.id);
+  save(); renderAll(); alert("Award winner updated.");
+}
+function deleteAward(index){
+  if(!awards[index])return;
+  if(!confirm(`Delete the award "${awards[index].name}"?`))return;
+  awards.splice(index,1); save(); renderAll(); alert("Award deleted.");
+}
+
+/* =========================================================
    ADD MATCH
    ========================================================= */
 
@@ -4474,10 +4512,21 @@ playerName.toLowerCase()
 if(player){
 
 player.goals++;
+const minuteMatch=event.match(/(\d+)\s*'/);
+goalLog.unshift({
+  id:Date.now()+Math.random(),
+  player:player.name,
+  minute:minuteMatch?minuteMatch[1]:"",
+  opponent:opponent,
+  assister:"",
+  date:document.getElementById("mDate").value||new Date().toISOString().slice(0,10)
+});
 
 }
 
 });
+
+goalLog=goalLog.slice(0,30);
 
 
 save();
@@ -4668,52 +4717,15 @@ alert(
    ========================================================= */
 
 function addAward(){
-
-const name=
-document
-.getElementById("aName")
-.value
-.trim();
-
-const winner=
-document
-.getElementById("aWinner")
-.value
-.trim();
-
-if(!name||!winner){
-
-alert(
-"Enter award and winner."
-);
-
-return;
-
-}
-
-
-awards.unshift({
-
-name:name,
-
-winner:winner,
-
-year:
-document
-.getElementById("aYear")
-.value
-
-});
-
-
-save();
-
-renderAll();
-
-alert(
-"Award added."
-);
-
+  const name=document.getElementById("aName").value.trim();
+  const winnerId=document.getElementById("aWinner").value;
+  const winner=players.find(p=>String(p.id)===String(winnerId));
+  const year=document.getElementById("aYear").value.trim()||"2026/27";
+  if(!name){alert("Enter an award name.");return;}
+  if(!winner){alert("Add a player and choose an award winner first.");return;}
+  awards.unshift({name:name,winner:winner.name,winnerId:String(winner.id),year:year});
+  document.getElementById("aName").value=""; document.getElementById("aYear").value="";
+  save(); renderAll(); alert("Award added.");
 }
 
 
@@ -4837,6 +4849,7 @@ if(!answer)return;
 "ML4_gallery",
 "ML4_hall",
 "ML4_tickets",
+"ML4_goalLog",
 "ML4_customBackground"
 ]
 .forEach(
@@ -4855,6 +4868,11 @@ location.reload();
    ========================================================= */
 
 function renderAll(){
+
+refreshPlayerSelects();
+renderAdminManagers();
+
+renderHomeGoalBoard();
 
 renderPlayers();
 
