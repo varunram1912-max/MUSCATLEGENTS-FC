@@ -2037,15 +2037,24 @@ class="card">
 </h2>
 
 <p class="muted">
-Enter the administrator password to continue.
+Sign in to the private administrator area. The administrator email is kept hidden from the page display.
 </p>
 
 <div class="form">
 
 <input
+id="adminEmail"
+type="email"
+autocomplete="username"
+value="varunram1912@gmail.com"
+aria-label="Administrator login email"
+style="display:none">
+
+<input
 id="password"
 type="password"
-placeholder="Administrator password">
+autocomplete="current-password"
+placeholder="Firebase account password">
 
 <button
 class="btn primary"
@@ -2054,7 +2063,7 @@ onclick="login()">
 LOGIN
 
 </button>
-
+<p id="cloudStatus" class="muted" role="status" aria-live="polite">Connecting to shared club data…</p>
 </div>
 
 </div>
@@ -2063,6 +2072,11 @@ LOGIN
 <div
 id="adminPanel"
 class="adminPanel">
+
+<div class="card" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+  <p id="adminCloudStatus" class="muted">Administrator session</p>
+  <button class="btn" onclick="logoutAdmin()">SIGN OUT</button>
+</div>
 
 <div class="adminGrid">
 
@@ -2484,7 +2498,214 @@ id="profileContent">
 </div>
 
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script>
+
+/* =========================================================
+   FIREBASE SHARED DATA CONNECTION
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyB_ca6UC7ZqigzwbpOoA7nWjWbe8Tok56A",
+  authDomain: "muscat-legends.firebaseapp.com",
+  projectId: "muscat-legends",
+  storageBucket: "muscat-legends.firebasestorage.app",
+  messagingSenderId: "413729646008",
+  appId: "1:413729646008:web:fe74cd6274a283cdc01b4d",
+  measurementId: "G-7MKLGVP2LW"
+};
+
+let mlFirebaseReady = false;
+let mlAuth = null;
+let mlDb = null;
+let mlStorage = null;
+let mlCloudUnsubscribe = null;
+let mlCloudReady = false;
+let mlApplyingCloud = false;
+let mlCloudQueue = Promise.resolve();
+let mlCloudErrorShown = false;
+
+function setCloudStatus(message) {
+  ["cloudStatus", "adminCloudStatus"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = message;
+  });
+}
+
+try {
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  mlAuth = firebase.auth();
+  mlDb = firebase.firestore();
+  mlStorage = firebase.storage();
+  mlFirebaseReady = true;
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
+  setTimeout(() => setCloudStatus("Firebase could not start. Check the Firebase configuration and internet connection."), 0);
+}
+
+const mlSiteDoc = () => mlDb.collection("siteData").doc("main");
+const mlImageData = value => typeof value === "string" && value.startsWith("data:image/");
+
+async function mlUploadImageIfNeeded(value, path) {
+  if (!mlImageData(value)) return value || "";
+  if (!mlAuth || !mlAuth.currentUser) throw new Error("Sign in as the administrator before uploading images.");
+  const ref = mlStorage.ref(path);
+  const snapshot = await ref.putString(value, "data_url", { contentType: value.slice(5, value.indexOf(";")) || "image/jpeg" });
+  return await snapshot.ref.getDownloadURL();
+}
+
+async function mlPrepareCloudPayload() {
+  // Store image files in Firebase Storage and keep only their download URLs in Firestore.
+  for (const player of players) {
+    if (player.photo && mlImageData(player.photo)) {
+      player.photo = await mlUploadImageIfNeeded(player.photo, `siteData/players/${player.id || Date.now()}-${Math.random().toString(36).slice(2)}.img`);
+    }
+  }
+  for (const photo of gallery) {
+    if (photo.image && mlImageData(photo.image)) {
+      photo.image = await mlUploadImageIfNeeded(photo.image, `siteData/gallery/${photo.id || Date.now()}-${Math.random().toString(36).slice(2)}.img`);
+    }
+  }
+  let customBackground = localStorage.getItem("ML4_customBackground") || "";
+  if (mlImageData(customBackground)) {
+    customBackground = await mlUploadImageIfNeeded(customBackground, `siteData/backgrounds/main-${Date.now()}.img`);
+    localStorage.setItem("ML4_customBackground", customBackground);
+  }
+  return {
+    players, matches, news, transfers, trophies, awards, gallery, hall,
+    tickets, goalLog, customBackground,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+}
+
+function mlPersistCloud() {
+  if (!mlFirebaseReady || !mlCloudReady || mlApplyingCloud || !mlAuth || !mlAuth.currentUser) return;
+  mlCloudQueue = mlCloudQueue.then(async () => {
+    if (!mlAuth.currentUser) return;
+    setCloudStatus("Saving shared club data…");
+    const payload = await mlPrepareCloudPayload();
+    await mlSiteDoc().set(payload);
+    setCloudStatus("Shared club data saved ✓");
+  }).catch(error => {
+    console.error("Cloud save failed:", error);
+    setCloudStatus("Cloud save failed: " + (error.code || error.message || "check Firestore and Storage rules"));
+  });
+}
+
+function mlApplyPayload(data) {
+  mlApplyingCloud = true;
+  try {
+    if (Array.isArray(data.players)) players = data.players;
+    if (Array.isArray(data.matches)) matches = data.matches;
+    if (Array.isArray(data.news)) news = data.news;
+    if (Array.isArray(data.transfers)) transfers = data.transfers;
+    if (Array.isArray(data.trophies)) trophies = data.trophies;
+    if (Array.isArray(data.awards)) awards = data.awards;
+    if (Array.isArray(data.gallery)) gallery = data.gallery;
+    if (Array.isArray(data.hall)) hall = data.hall;
+    if (Array.isArray(data.goalLog)) goalLog = data.goalLog;
+    if (typeof data.tickets === "number") tickets = data.tickets;
+    if (typeof data.customBackground === "string") {
+      if (data.customBackground) localStorage.setItem("ML4_customBackground", data.customBackground);
+      else localStorage.removeItem("ML4_customBackground");
+    }
+    localStorage.setItem("ML4_players", JSON.stringify(players));
+    localStorage.setItem("ML4_matches", JSON.stringify(matches));
+    localStorage.setItem("ML4_news", JSON.stringify(news));
+    localStorage.setItem("ML4_transfers", JSON.stringify(transfers));
+    localStorage.setItem("ML4_trophies", JSON.stringify(trophies));
+    localStorage.setItem("ML4_awards", JSON.stringify(awards));
+    localStorage.setItem("ML4_gallery", JSON.stringify(gallery));
+    localStorage.setItem("ML4_hall", JSON.stringify(hall));
+    localStorage.setItem("ML4_goalLog", JSON.stringify(goalLog));
+    localStorage.setItem("ML4_tickets", String(tickets));
+    if (typeof renderAll === "function") renderAll();
+  } finally {
+    mlApplyingCloud = false;
+  }
+}
+
+async function mlLoadSharedData() {
+  if (!mlFirebaseReady) return;
+  setCloudStatus("Loading shared club data…");
+  try {
+    const snapshot = await mlSiteDoc().get();
+    if (snapshot.exists) {
+      mlApplyPayload(snapshot.data());
+      setCloudStatus("Shared club data loaded ✓");
+    } else {
+      setCloudStatus("No shared data yet. Sign in as admin to publish this device's current data.");
+    }
+    if (mlCloudUnsubscribe) mlCloudUnsubscribe();
+    mlCloudUnsubscribe = mlSiteDoc().onSnapshot(snap => {
+      if (snap.exists && !mlApplyingCloud) {
+        mlApplyPayload(snap.data());
+        setCloudStatus("Live shared club data ✓");
+      }
+    }, error => {
+      console.error("Cloud listener failed:", error);
+      setCloudStatus("Live updates unavailable: " + (error.code || error.message));
+    });
+    mlCloudReady = true;
+    if (!snapshot.exists && mlAuth.currentUser) mlPersistCloud();
+  } catch (error) {
+    console.error("Cloud load failed:", error);
+    setCloudStatus("Could not load cloud data: " + (error.code || error.message));
+  }
+}
+
+async function login() {
+  if (!mlFirebaseReady) { alert("Firebase has not initialized. Check your internet connection and Firebase configuration."); return; }
+  const email = (document.getElementById("adminEmail")?.value || "").trim();
+  const password = document.getElementById("password")?.value || "";
+  if (!email || !password) { alert("Enter your Firebase administrator email and password."); return; }
+  try {
+    setCloudStatus("Signing in…");
+    const credential = await mlAuth.signInWithEmailAndPassword(email, password);
+    if ((credential.user.email || "").toLowerCase() !== "varunram1912@gmail.com") {
+      await mlAuth.signOut();
+      alert("This account is not the authorized Muscat Legends administrator.");
+      return;
+    }
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("adminPanel").classList.add("show");
+    setCloudStatus("Administrator signed in. Loading shared data…");
+    await mlLoadSharedData();
+    // If this database has no shared document yet, publish the current local state.
+    const snap = await mlSiteDoc().get();
+    if (!snap.exists) mlPersistCloud();
+    alert("Admin login successful. Club data will sync through Firebase.");
+  } catch (error) {
+    console.error("Admin sign-in failed:", error);
+    setCloudStatus("Sign-in failed: " + (error.code || error.message));
+    alert("Sign-in failed. Check the email/password and make sure the user exists in Firebase Authentication.");
+  }
+}
+
+async function logoutAdmin() {
+  if (mlAuth) await mlAuth.signOut();
+  document.getElementById("adminPanel").classList.remove("show");
+  document.getElementById("loginBox").style.display = "block";
+  document.getElementById("password").value = "";
+  setCloudStatus("Signed out. Visitors can still read shared club data.");
+}
+
+if (mlFirebaseReady) {
+  mlAuth.onAuthStateChanged(async user => {
+    if (user && (user.email || "").toLowerCase() === "varunram1912@gmail.com") {
+      document.getElementById("loginBox") && (document.getElementById("loginBox").style.display = "none");
+      document.getElementById("adminPanel") && document.getElementById("adminPanel").classList.add("show");
+      await mlLoadSharedData();
+    } else {
+      document.getElementById("adminPanel") && document.getElementById("adminPanel").classList.remove("show");
+      document.getElementById("loginBox") && (document.getElementById("loginBox").style.display = "block");
+      mlLoadSharedData();
+    }
+  });
+}
+
 
 /* =========================================================
    DATA
@@ -2734,6 +2955,9 @@ localStorage.setItem(
 "ML4_goalLog",
 JSON.stringify(goalLog)
 );
+
+// Keep the existing local save and also sync to Firebase when the admin is signed in.
+mlPersistCloud();
 
 }
 
@@ -4763,6 +4987,7 @@ e.target.result
 );
 
 applyBackground();
+mlPersistCloud();
 
 alert(
 "Your background is now active."
@@ -4813,6 +5038,7 @@ function restoreBackground(){
 localStorage.removeItem(
 "ML4_customBackground"
 );
+mlPersistCloud();
 
 document
 .querySelector(".siteBackground")
@@ -4858,6 +5084,13 @@ localStorage.removeItem(key)
 );
 
 
+if (mlAuth && mlAuth.currentUser && (mlAuth.currentUser.email || "").toLowerCase() === "varunram1912@gmail.com") {
+  mlSiteDoc().delete().then(() => location.reload()).catch(error => {
+    alert("Local data was cleared, but cloud data could not be reset: " + (error.code || error.message));
+    location.reload();
+  });
+  return;
+}
 location.reload();
 
 }
