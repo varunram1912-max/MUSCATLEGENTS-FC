@@ -3382,13 +3382,20 @@ document
 
 categories.map(c=>{
 
-const p=
-[...players]
-.sort(
-(a,b)=>
-b[c[2]]-
-a[c[2]]
-)[0];
+const p = [...players]
+  .filter(player => player && player.name)
+  .sort((a, b) => (Number(b[c[2]]) || 0) - (Number(a[c[2]]) || 0))[0];
+
+if (!p) {
+  return `
+    <div class="card">
+      <div style="font-size:55px">${c[0]}</div>
+      <h3>${c[1]}</h3>
+      <h2 class="gold">No players yet</h2>
+      <p class="muted">Add a player to show this ranking.</p>
+    </div>
+  `;
+}
 
 return `
 
