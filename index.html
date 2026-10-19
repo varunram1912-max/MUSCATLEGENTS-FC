@@ -4372,11 +4372,10 @@ async function login() {
     document.getElementById("password").value;
 
   try {
-    if (!window.mlAuth) {
-      alert("Firebase is not connected. Please check the Firebase setup.");
-      return;
-    }
-
+   if (!mlFirebaseReady || !mlAuth) {
+  alert("Firebase is not ready. Check the initialization status.");
+  return;
+}
     await mlAuth.signInWithEmailAndPassword(
       email,
       password
