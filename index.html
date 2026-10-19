@@ -4366,40 +4366,37 @@ type+
    ADMIN LOGIN
    ========================================================= */
 
-function login(){
+async function login() {
+  const email = "varunram1912@gmail.com";
+  const password =
+    document.getElementById("password").value;
 
-/*
-   PASSWORD IS INTENTIONALLY NOT DISPLAYED
-   ON THE WEBSITE.
-*/
+  try {
+    if (!window.mlAuth) {
+      alert("Firebase is not connected. Please check the Firebase setup.");
+      return;
+    }
 
-const entered=
-document
-.getElementById("password")
-.value;
+    await mlAuth.signInWithEmailAndPassword(
+      email,
+      password
+    );
 
-if(entered==="MLegends#8427"){
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("adminPanel").classList.add("show");
 
-document
-.getElementById("loginBox")
-.style.display="none";
+    if (typeof mlLoadSharedData === "function") {
+      await mlLoadSharedData();
+    }
 
-document
-.getElementById("adminPanel")
-.classList.add("show");
-
-alert(
-"Admin login successful."
-);
-
-}else{
-
-alert(
-"Incorrect password."
-);
-
-}
-
+    alert("Admin login successful. Firebase connected.");
+  } catch (error) {
+    console.error("Firebase login error:", error);
+    alert(
+      "Firebase login failed: " +
+      (error.code || error.message)
+    );
+  }
 }
 
 
